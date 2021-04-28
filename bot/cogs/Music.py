@@ -348,9 +348,9 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             query = query.strip("<>")
             if not re.match(URL_REGEX, query):
                 query = f"ytsearch:{query}"
-            
-            await player.add_tracks(ctx, await self.wavelink.get_tracks(query))
             await ctx.message.add_reaction("✅")
+            await player.add_tracks(ctx, await self.wavelink.get_tracks(query))
+            
     @commands.command(name="queue",aliases=["q"])
     async def queue_command(self,ctx):
         player = self.get_player(ctx)
@@ -556,6 +556,21 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         end = time()
         em.add_field(name="Response Time:",value=f"`{(end-start)*1000:,.0f} ms.`")
         await message.edit(embed=em)
+    @commands.command(name="nowplaying",aliases=["now","np","song"])
+    async def nowplaying_command(self,ctx):
+        player = self.get_player(ctx)
+        embed = discord.Embed(title="Now Playing",
+        description=f"[**{player.queue.cuurrent_track.title}**]({player.queue.cuurrent_track.uri})",
+        color=discord.Color.random(),
+        timestamp=dt.datetime.utcnow()
+        )
+        embed.set_thumbnail(url=player.queue.cuurrent_track.thumb)
+        hrs = (player.queue.queue_duration//60000)//60
+        embed.add_field(name=":hourglass: Duration",value=f"{hrs}:{(player.queue.queue_duration//60000)-(60*hrs)}:{str(player.queue.queue_duration%60).zfill(2)}")
+        #embed.add_field(name="Duration",value=f"{player.queue.cuurrent_track.length//60000}:{str(track.length%60).zfill(2)}")
+        embed.add_field(name=":bust_in_silhouette: Author",value=f"{player.queue.cuurrent_track.author}")
+        #embed.add_field(name="Requested by:",value=f"{ctx.author.mention}")
+        await ctx.send(embed=embed)
 def setup(bot):
     bot.add_cog(Music(bot))
 
