@@ -485,8 +485,9 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     async def stop_command(self,ctx):
         player = self.get_player(ctx)
         player.queue.empty_queue()
+        player.queue.repeat_mode = RepeatMode.NONE
         await player.stop()
-        await ctx.send("Playback stopped.")
+        await ctx.message.add_reaction("⏹️")
 
     @commands.command(name="next",aliases=["skip"])
     async def next_command(self,ctx):
