@@ -560,7 +560,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     async def nowplaying_command(self,ctx):
         player = self.get_player(ctx)
         embed = discord.Embed(title="Now Playing",
-        description=f"[**{player.queue.cuurrent_track.title}**]({player.queue.cuurrent_track.uri})",
+        description=f"[**{player.queue.current_track.title}**]({player.queue.current_track.uri})",
         color=discord.Color.random(),
         timestamp=dt.datetime.utcnow()
         )
