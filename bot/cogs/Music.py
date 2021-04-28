@@ -9,6 +9,7 @@ import random
 from enum import Enum
 import math
 import asyncio
+from time import time
 URL_REGEX = r"(?i)\b((?:https?://|www\d{0,3}[.]|[a-z0-9.\-]+[.][a-z]{2,4}/)(?:[^\s()<>]+|\(([^\s()<>]+|(\([^\s()<>]+\)))*\))+(?:\(([^\s()<>]+|(\([^\s()<>]+\)))*\)|[^\s`!()\[\]{};:'\".,<>?«»“”‘’]))"
 
 OPTIONS = {
@@ -530,13 +531,31 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @commands.command(name="repeat",aliases=["loop"])
     async def repeat_command(self,ctx,mode:str):
         if mode not in ("song","queue","none"):
-            await ctx.send("Invalid repeat mode specified.")
+            await ctx.send("Invalid repeat mode specified. These are valid inputs: `Song`, `Queue`, `None`")
         else:
             player = self.get_player(ctx)
             await ctx.message.add_reaction("🔁")
             player.queue.set_repeat_mode(mode.lower())
             embed = discord.Embed(description=f"Looping set to: `{mode}`",color=discord.Color.random())
             await ctx.send(embed=embed)
+    @commands.command(name="ping")
+    async def _ping(self, ctx):
+        lat = round((self.bot.latency)*1000)
+        em = discord.Embed(title=":ping_pong: | Pong!")
+        if lat < 150:
+            em.color = 0x008000
+            em.add_field(name="DWSP Latency:",value=f"`{lat}ms.`")
+        elif lat >= 150:
+            em.color = 0xffff00
+            em.add_field(name="DWSP Latency:",value=f"`{lat}ms.`")
+        else:
+            em.color = 0xff0000
+            em.add_field(name="DWSP Latency:",value=f"`{lat}ms.`")
+        start = time()
+        message = await ctx.send(embed=em)
+        end = time()
+        em.add_field(name="Response Time:",value=f"`{(end-start)*1000:,.0f} ms.`")
+        await message.edit(embed=em)
 def setup(bot):
     bot.add_cog(Music(bot))
 
