@@ -20,6 +20,7 @@ class MusicBot(commands.Bot):
 ##        with open("data/token.0","r", encoding="utf-8") as f:
 ##            TOKEN = f.read() 
         TOKEN = os.getenv("TOKEN")
+
         print("Running the bot")
         super().run(TOKEN,reconnect=True)
         
