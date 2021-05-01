@@ -152,12 +152,7 @@ class Player(wavelink.Player):
 
         await super().connect(channel.id)
         return channel
-    async def set_volume(self, vol:int):
-        if vol > 100:
-            self.volume = 1000
-        else:
-            volume = vol*10
-            self.volume = volume
+
     async def teardown(self):
         try:
             self.queue.repeat_mode = RepeatMode.NONE
@@ -189,7 +184,12 @@ class Player(wavelink.Player):
                 timestamp=dt.datetime.utcnow()
                 )
                 embed.set_thumbnail(url=track.thumb)
-                embed.add_field(name="Duration",value=f"{track.length//60000}:{str(track.length%60).zfill(2)}")
+                hrs = (track.length//60000)//60
+                hrs = int(hrs)
+                if hrs > 0:
+                    embed.add_field(name="Duration",value=f"`{hrs}:{str((track.length//60000)-(60*hrs)).zfill(2)}:{str(track.length%60).zfill(2)}`")
+                else:
+                    embed.add_field(name="Duration",value=f"`{(track.length//60000)-(60*hrs)}:{str(track.length%60).zfill(2)}`")
                 embed.add_field(name="Author",value=f"{track.author}")
                 embed.add_field(name="Requested by:",value=f"{requester}")
                 await ctx.send(embed=embed)
@@ -341,6 +341,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         if not player.is_connected:
             channel = await player.connect(ctx)
             await ctx.guild.change_voice_state(channel=channel,self_deaf=True)
+        await player.set_volume(65)
         if query is None:
             pass
         else:
@@ -349,7 +350,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
                 query = f"ytsearch:{query}"
             
             
-            await player.add_tracks(ctx, await self.wavelink.get_tracks(query))
+            await player.add_tracks(ctx, await self.wavelink.get_tracks(query,retry_on_failure=True))
             
     @commands.command(name="queue",aliases=["q"])
     async def queue_command(self,ctx):
@@ -559,8 +560,18 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             )
             requester = player.queue.current_track.info["requester"]
             embed.set_thumbnail(url=player.queue.current_track.thumb)
+            seconds=(player.position/1000)%60
+            seconds = int(seconds)
+            minutes=(player.position/(1000*60))%60
+            minutes = int(minutes)
+            hours=(player.position/(1000*60*60))%24
+            hours = int(hours)
+            #print(f"{h}")
             hrs = (player.queue.current_track.duration//60000)//60
-            embed.add_field(name=":hourglass: Duration",value=f"{hrs}:{(player.queue.current_track.duration//60000)-(60*hrs)}:{str(player.queue.current_track.duration%60).zfill(2)}")
+            if hrs > 0:
+                embed.add_field(name=":hourglass: Duration",value=f"`{hours}:{str(minutes).zfill(2)}:{str(seconds).zfill(2)}/{hrs}:{(player.queue.current_track.duration//60000)-(60*hrs)}:{str(player.queue.current_track.duration%60).zfill(2)}`")
+            else:
+                embed.add_field(name=":hourglass: Duration",value=f"`{minutes}:{str(seconds).zfill(2)}/{(player.queue.current_track.duration//60000)}:{str(player.queue.current_track.duration%60).zfill(2)}`")
             #embed.add_field(name="Duration",value=f"{player.queue.cuurrent_track.length//60000}:{str(track.length%60).zfill(2)}")
             embed.add_field(name=":bust_in_silhouette: Author",value=f"{player.queue.current_track.author}")
             embed.add_field(name="Requested by:",value=f"{requester}",inline=False)
@@ -576,7 +587,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             player.queue._queue.pop(index+player.queue.position)
             await ctx.message.add_reaction("✅")
 
-    @commands.command(name="move")
+    @commands.command(name="move",aliases=["mv"])
     async def move_command(self,ctx,index1:int,index2:int):
         if index1 is None or index2 is None:
             raise commands.MissingRequiredArgument
@@ -591,7 +602,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     # async def volume_command(self,ctx,vol:int):
     #     player = self.get_player(ctx)
     #     if 0 <= vol <=100:
-    #         player.volume = vol
+    #         await player.set_volume(vol*10)
     #         await ctx.send(f"Volume of the player set to: {vol}%")
     #     else:
     #         await ctx.send("Volume must be between 0 and 100.")
@@ -599,8 +610,8 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
     @commands.command(name="bassboost",aliases=["boost","bass"])
     async def bassboost_command(self,ctx):
         player = self.get_player(ctx)
-        print(type(player.equalizer.name))
-        print(player.equalizer.name)
+        # print(type(player.equalizer.name))
+        # print(player.equalizer.name)
         if player.equalizer.name != "Boost":
             # equaliser = [(0, -0.075), (1, .125), (2, .125), (3, .1), (4, .1),
             #       (5, .05), (6, 0.075), (7, .0), (8, .0), (9, .0),
@@ -610,6 +621,30 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         elif player.equalizer.name == "Boost":
             await player.set_eq(wavelink.eqs.Equalizer.flat())
             await ctx.send("Bass boosted mode turned off.")
+    @commands.command(name="seek",aliases=["position"])
+    async def seek_command(self,ctx,time:str):
+        try:
+            player = self.get_player(ctx)
+            if ":" in time:
+                a = time.split(":")
+                x = len(a)
+                if x == 2:
+                    minutes = int(a[0])
+                    seconds = int(a[1])
+                    seconds += minutes*60
+                elif x == 3:
+                    hours  = int(a[0])
+                    minutes = int(a[1])
+                    seconds = int(a[2])
+                    seconds += minutes*60+hours*3600
+            else:
+                seconds = int(time)
+            await player.seek(seconds*1000)
+            #em = discord.Embed(description=f"Seeked to the position `{time}`")
+            await ctx.message.add_reaction("✅")
+        except Exception as e:
+            await ctx.send(str(e))
+    
 def setup(bot):
     bot.add_cog(Music(bot))
 
