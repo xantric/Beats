@@ -202,7 +202,45 @@ class Player(wavelink.Player):
         await ctx.message.add_reaction("✅")
         if not self.is_playing and not self.queue.is_empty:
             await self.start_playback()
-        
+    async def ytsearch_add_tracks(self,ctx,tracks):
+        if not tracks:
+            raise NoTracksFound
+
+        if isinstance(tracks, wavelink.TrackPlaylist):
+            self.queue.add(*tracks.tracks)
+        elif len(tracks) == 1:
+            self.queue.add(tracks[0])
+            await ctx.send(f"Added {tracks[0].title} to the queue.")
+        else:
+            if (track := await self.choose_track(ctx, tracks)) is not None:
+                track.info["requester"] = ctx.author.mention
+                requester = track.info["requester"]
+                self.queue.add(track)
+                if not self.is_playing and not self.queue.is_empty:
+                    embed = discord.Embed(title="Now Playing",
+                    description=f"[**{track.title}**]({track.uri})",
+                    color=discord.Color.random(),
+                    timestamp=dt.datetime.utcnow()
+                    )
+                    embed.set_thumbnail(url=track.thumb)
+                    hrs = (track.length//60000)//60
+                    hrs = int(hrs)
+                    if hrs > 0:
+                        embed.add_field(name="Duration",value=f"`{hrs}:{str((track.length//60000)-(60*hrs)).zfill(2)}:{str(track.length%60).zfill(2)}`")
+                    else:
+                        embed.add_field(name="Duration",value=f"`{(track.length//60000)-(60*hrs)}:{str(track.length%60).zfill(2)}`")
+                    embed.add_field(name="Author",value=f"{track.author}")
+                    embed.add_field(name="Requested by:",value=f"{requester}")
+                    await ctx.send(embed=embed)
+                else:
+                    embed = discord.Embed(title="Music Queue",
+                    description=f"Added [**{track.title}**]({track.uri}) to queue.",
+                    color=discord.Color.random()
+                    )
+                    await ctx.send(embed=embed)
+
+        if not self.is_playing and not self.queue.is_empty:
+            await self.start_playback()
     async def choose_track(self, ctx, tracks):
         def _check(r, u):
             return (
@@ -578,7 +616,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             await ctx.send(embed=embed)
         else:
             await ctx.send("Nothing playing right now. Use `[p]play <song/url>` to start streaming.")
-    @commands.command(name="removesong",aliases=["rs"])
+    @commands.command(name="removesong",aliases=["rs","remove"])
     async def removesong(self,ctx,index:int):
         if index is None:
             await ctx.send("You need to specify the index of song to remove.")
@@ -621,7 +659,7 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
         elif player.equalizer.name == "Boost":
             await player.set_eq(wavelink.eqs.Equalizer.flat())
             await ctx.send("Bass boosted mode turned off.")
-    @commands.command(name="seek",aliases=["position"])
+    @commands.command(name="seek",aliases=["position","fastforward","ff"])
     async def seek_command(self,ctx,time:str):
         try:
             player = self.get_player(ctx)
@@ -644,6 +682,22 @@ class Music(commands.Cog, wavelink.WavelinkMixin):
             await ctx.message.add_reaction("✅")
         except Exception as e:
             await ctx.send(str(e))
+    
+    @commands.command(name="ytsearch",aliases=["searchsong","songsearch"])
+    async def ytsearch_(self,ctx,*,query):
+        player = self.get_player(ctx)
+        if not player.is_connected:
+            channel = await player.connect(ctx)
+            await ctx.guild.change_voice_state(channel=channel,self_deaf=True)
+            await player.set_volume(65)
+        if query is None:
+            pass
+        else:
+            query = query.strip("<>")
+            if not re.match(URL_REGEX, query):
+                query = f"ytsearch:{query}"
+            
+            await player.ytsearch_add_tracks(ctx, await self.wavelink.get_tracks(query,retry_on_failure=True))
     
 def setup(bot):
     bot.add_cog(Music(bot))
