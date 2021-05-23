@@ -30,6 +30,7 @@ Once all this is done the bot is ready to go.
 
 Type in cmd:
 <code>python launcher.py</code>
-
 and voila done.
+
+The default prefix of the bot is : <code>+</code>
 
