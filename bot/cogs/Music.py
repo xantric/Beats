@@ -35,7 +35,7 @@ class RepeatMode(Enum):
 class Music(commands.Cog):
     def __init__(self,bot):
         self.bot = bot
-        bot.lavalink = lavalink.Client(805430097426513941)
+        bot.lavalink = lavalink.Client(bot.user.id)
         bot.lavalink.add_node('lava.link', 80, 'anything as a password', 'us', 'alpha')
         bot.lavalink.add_node('lava.link', 80, 'anything as a password', 'us', 'beta')
         bot.lavalink.add_node('lava.link', 80, 'anything as a password', 'us', 'gamma')
